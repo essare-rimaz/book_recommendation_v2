@@ -14,7 +14,7 @@ dataset = pd.merge(ratings, books, on=['ISBN'])
 dataset_lowercase=dataset.apply(lambda x: x.str.lower() if(x.dtype == 'object') else x)
 
 input_book = 'the fellowship of the ring (the lord of the rings, part 1)'
-readers = dataset_lowercase['User-ID'][(dataset_lowercase['Book-Title']==input_book) & (dataset_lowercase['Book-Author'].str.contains("tolkien"))]
+readers = dataset_lowercase['User-ID'][(dataset_lowercase['Book-Title']==input_book)]
 readers = readers.tolist()
 readers = np.unique(readers)
 
