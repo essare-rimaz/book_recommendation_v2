@@ -13,7 +13,8 @@ books = pd.read_csv('Downloads/BX-Books.csv',  encoding='cp1251', sep=';',error_
 dataset = pd.merge(ratings, books, on=['ISBN'])
 dataset_lowercase=dataset.apply(lambda x: x.str.lower() if(x.dtype == 'object') else x)
 
-tolkien_readers = dataset_lowercase['User-ID'][(dataset_lowercase['Book-Title']=='the fellowship of the ring (the lord of the rings, part 1)') & (dataset_lowercase['Book-Author'].str.contains("tolkien"))]
+LoR_book = 'the fellowship of the ring (the lord of the rings, part 1)'
+tolkien_readers = dataset_lowercase['User-ID'][(dataset_lowercase['Book-Title']==LoR_book) & (dataset_lowercase['Book-Author'].str.contains("tolkien"))]
 tolkien_readers = tolkien_readers.tolist()
 tolkien_readers = np.unique(tolkien_readers)
 
@@ -36,37 +37,16 @@ ratings_data_raw_nodup = ratings_data_raw.groupby(['User-ID', 'Book-Title'])['Bo
 ratings_data_raw_nodup = ratings_data_raw_nodup.to_frame().reset_index()
 
 dataset_for_corr = ratings_data_raw_nodup.pivot(index='User-ID', columns='Book-Title', values='Book-Rating')
-LoR_book = 'the fellowship of the ring (the lord of the rings, part 1)'
+   
+dataset_for_corr.corr()
+correlations = dataset_for_corr.corr()[LoR_book]
+correlations = correlations.rename("correlation")
 
-result_list = []
-worst_list = []
+averages = dataset_for_corr.mean()
+averages = averages.rename("average")
 
-
-#Take out the Lord of the Rings selected book from correlation dataframe
-dataset_of_other_books = dataset_for_corr.copy(deep=False)
-dataset_of_other_books.drop([LoR_book], axis=1, inplace=True)
-    
-# empty lists
-book_titles = []
-correlations = []
-avgrating = []
-
-# corr computation
-for book_title in list(dataset_of_other_books.columns.values):
-    book_titles.append(book_title)
-    correlations.append(dataset_for_corr[LoR_book].corr(dataset_of_other_books[book_title]))
-    tab=(ratings_data_raw[ratings_data_raw['Book-Title']==book_title].groupby(ratings_data_raw['Book-Title']).mean())
-    avgrating.append(tab['Book-Rating'].min())
-# final dataframe of all correlation of each book   
-corr_fellowship = pd.DataFrame(list(zip(book_titles, correlations, avgrating)), columns=['book','corr','avg_rating'])
-corr_fellowship.head()
-
-# top 10 books with highest corr
-result_list.append(corr_fellowship.sort_values('corr', ascending = False).head(10))
-
-#worst 10 books
-worst_list.append(corr_fellowship.sort_values('corr', ascending = False).tail(10))
-    
-print("Correlation for book:", LoR_list[0])
-#print("Average rating of LOR:", ratings_data_raw[ratings_data_raw['Book-Title']=='the fellowship of the ring (the lord of the rings, part 1'].groupby(ratings_data_raw['Book-Title']).mean()))
-rslt = result_list[0]
+values = pd.concat([averages, correlations], axis=1).reset_index()
+#TODO all search logic should be done using IBAN, otherwise we will run into problems the moment queried book title a) exists multiple times b) is also recommended
+values = values[values["Book-Title"] != LoR_book]
+values = values.sort_values('correlation', ascending = False).head(10)
+print(values)
