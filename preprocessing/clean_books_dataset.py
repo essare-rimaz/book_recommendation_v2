@@ -72,17 +72,10 @@ with open("L1\\books_intermediary.csv", "a", encoding="utf-8") as out_file:
 books = pd.read_csv("L1\\books_intermediary.csv", sep=";", on_bad_lines="warn", dtype=data_types, quotechar='"', escapechar="\\", encoding="utf-8")
 books.rename(columns=new_col_names, inplace=True)
 
-#books["PUBLICATION_YEAR"] = books["PUBLICATION_YEAR"].replace("0", pd.NA)
-print(books.describe())
-print(books.query('PUBLICATION_YEAR==2037'))
-print(books.query('ISBN=="0140292918"')["TITLE"].values)
-print(books.query('ISBN=="0140292918"')["PUBLICATION_YEAR"].values)
-print(books["PUBLICATION_YEAR"].unique())
-print(books.query('PUBLICATION_YEAR=="DK Publishing Inc"'))
-books["TITLE_LOWERCASE"] = books["TITLE"].str.lower()
 books = books.drop(["IMAGE_URL_S", "IMAGE_URL_M", "IMAGE_URL_L"], axis=1)
-cols = ["ISBN", "TITLE", "TITLE_LOWERCASE", "AUTHOR", "PUBLICATION_YEAR", "PUBLISHER"]
+cols = ["ISBN", "TITLE", "AUTHOR", "PUBLICATION_YEAR", "PUBLISHER"]
 books = books[cols]
+books = books.dropna()
 books.to_csv("L1\\books_cleaned.csv", sep=";", quotechar='"', escapechar="\\", encoding="utf-8", na_rep=pd.NA, index=False, mode="w")
 books = pd.read_csv("L1\\books_cleaned.csv", sep=";", on_bad_lines="warn", dtype=new_data_types, quotechar='"', escapechar="\\", encoding="utf-8")
 print(books.describe())

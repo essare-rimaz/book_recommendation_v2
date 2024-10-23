@@ -1,45 +1,55 @@
-# import
 import pandas as pd
-import numpy as np
-from typing import List
+from sqlalchemy.orm import Session
+from sqlalchemy import select, func
+from db import Rating, Book
+import schemas
+from fastapi import status, Response
 
-#TODO replace with database
-book_ratings = pd.read_csv("L1\\merged.csv", sep=";", on_bad_lines="warn", quotechar='"', encoding="utf-8")
 
-input_book = 'the fellowship of the ring (the lord of the rings, part 1)'
+def get_book_details(input_book: str, db: Session):
+    book_details = db.query(Book).filter(Book.ISBN == input_book).first()
+    if not book_details:
+        return Response(content="[]", status_code=status.HTTP_200_OK)
+    return book_details
 
-def get_readers_of_book(input_book: str) -> List:
-    readers = book_ratings['USER_ID'][(book_ratings['TITLE_LOWERCASE']==input_book)]
-    readers = readers.tolist()
-    readers = np.unique(readers)
-    return readers
 
-def get_books_ranked_by_readers(readers: List, rank_count_threshold: int) -> pd.DataFrame:
-    books_of_readers = book_ratings[(book_ratings['USER_ID'].isin(readers))]
+def get_book_ratings(input_book: str, db: Session):
+    book_ratings = db.query(Rating).filter(Rating.ISBN == input_book).all()
+    if not book_ratings:
+        return Response(content="[]", status_code=status.HTTP_200_OK)
+
+    return book_ratings
+
+def get_user_ratings(user: int, db: Session):
+    ratings = db.query(Rating).filter(Rating.USER_ID == user).all()
+    if not ratings:
+        return Response(content="[]", status_code=status.HTTP_200_OK)
+
+    return ratings
+
+
+def get_readers_of_input_book(input_book: str, db: Session):
+    readers_statement = db.query(Rating.USER_ID).distinct().filter(Rating.ISBN == input_book)
+    readers_subquery = readers_statement.subquery()
+    readers_result = readers_statement.all()
+    if not readers_result:
+        return Response(content="[]", status_code=status.HTTP_200_OK)
     
-    number_of_rating_per_book = books_of_readers.groupby(['TITLE_LOWERCASE']).agg('count').reset_index()
-    
-    #select only books which have actually higher number of ratings than threshold
-    books_to_compare = number_of_rating_per_book['TITLE_LOWERCASE'][number_of_rating_per_book['USER_ID'] >= rank_count_threshold]
-    books_to_compare = books_to_compare.tolist()
-    ratings_book_to_compare = books_of_readers[['USER_ID', 'RATING', 'TITLE_LOWERCASE']][books_of_readers['TITLE_LOWERCASE'].isin(books_to_compare)]
+    return readers_result, readers_subquery
 
-    return ratings_book_to_compare
 
-def get_ratings_per_user_and_book(ratings_book_to_compare: pd.DataFrame) -> pd.DataFrame:
-    # group by User and Book and compute mean
-    ratings_per_user_and_book = ratings_book_to_compare.groupby(['USER_ID', 'TITLE_LOWERCASE'])['RATING'].mean()
+def get_ratings_of_related_books(input_book: str, db: Session, threshold: int=8) -> pd.DataFrame:
+    readers, readers_subquery = get_readers_of_input_book(input_book, db)
+    #TODO i might have readers but they might not have rated any other books
+    ranked_books = db.query(Rating.ISBN).filter(Rating.USER_ID.in_(select(readers_subquery))).group_by(Rating.ISBN).having(func.count(Rating.RATING)>threshold).subquery()
+    ratings_per_user_and_book = db.query(Rating.USER_ID, Rating.ISBN, Rating.RATING).filter(Rating.ISBN.in_(select(ranked_books)))
+    result = ratings_per_user_and_book
+    df = pd.read_sql(result.statement, db.bind)
+    df = df.pivot(index='USER_ID', columns='ISBN', values='RATING')
 
-    # reset index to see User-ID in every row
-    ratings_per_user_and_book = ratings_per_user_and_book.to_frame().reset_index()
+    return df
 
-    return ratings_per_user_and_book
-
-def get_correlation_dataset(ratings_per_user_and_book: pd.DataFrame) -> pd.DataFrame:
-    correlation_dataset = ratings_per_user_and_book.pivot(index='USER_ID', columns='TITLE_LOWERCASE', values='RATING')
-    return correlation_dataset
-
-def get_books_correlation(correlation_dataset: pd.DataFrame) -> pd.Series:  
+def get_books_correlation(correlation_dataset: pd.DataFrame, input_book: str) -> pd.Series:
     correlation_dataset.corr()
     input_book_correlations = correlation_dataset.corr()[input_book]
     input_book_correlations = input_book_correlations.rename("correlation")
@@ -52,17 +62,25 @@ def get_books_average_rating(correlation_dataset: pd.DataFrame) -> pd.Series:
 
     return input_book_averages
 
-def get_final_dataset(input_book_correlations: pd.Series, input_book_averages: pd.Series, n: int=10) -> pd.DataFrame:
+def get_final_dataset(input_book_correlations: pd.Series, input_book_averages: pd.Series, input_book: str, db: Session, n: int=10, threshold: float=0.6) -> pd.DataFrame:
     values = pd.concat([input_book_averages, input_book_correlations], axis=1).reset_index()
-    #TODO all search logic should be done using IBAN, otherwise we will run into problems the moment queried book title a) exists multiple times b) is also recommended
-    values = values[values["TITLE_LOWERCASE"] != input_book]
+    values = values[values["ISBN"] != input_book]
+    values = values[values["correlation"] > threshold]
     values = values.sort_values('correlation', ascending = False).head(n)
-    print(values)
+    #TODO - does it have to be tuples?
+    recommended_books = db.query(Book).filter(Book.ISBN.in_(tuple(values["ISBN"]))).all()
+    values = values.reset_index(drop=True)
 
-readers = get_readers_of_book(input_book=input_book)
-ratings_book_to_compare = get_books_ranked_by_readers(readers=readers, rank_count_threshold=8)
-ratings_per_user_and_book = get_ratings_per_user_and_book(ratings_book_to_compare)
-correlation_dataset = get_correlation_dataset(ratings_per_user_and_book)
-input_book_correlations = get_books_correlation(correlation_dataset=correlation_dataset)
-input_book_averages= get_books_average_rating(correlation_dataset=correlation_dataset)
-result = get_final_dataset(input_book_correlations, input_book_averages)
+    response_list = [
+        schemas.RecommendationOut(
+            ISBN=row.ISBN,
+            TITLE=row.TITLE,
+            PUBLICATION_YEAR=row.PUBLICATION_YEAR,
+            PUBLISHER=row.PUBLISHER,
+            AVERAGE=values.query("ISBN == @row.ISBN")["average"].values,
+            CORRELATION=values.query("ISBN == @row.ISBN")["correlation"].values
+        )
+        for row in recommended_books
+    ]
+
+    return response_list
