@@ -34,6 +34,5 @@ def get_password_hash(password):
 
 users["PASSWORD_HASH"] = get_password_hash("string")
 users["DISABLED_BOOLEAN"] = True
-print(f"the users table: {users}")
 
 users.to_csv("L1\\users_cleaned.csv", sep=";", encoding="utf-8", index=False)
