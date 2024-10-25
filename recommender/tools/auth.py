@@ -4,13 +4,13 @@ from jwt.exceptions import InvalidTokenError
 from datetime import datetime, timezone, timedelta
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from ..tools.db import get_db
+from database.db import get_db
 from database.models import User
 from typing import Union
 from typing_extensions import Annotated
 from fastapi import Depends, status, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-import recommender.schemas as schemas
+import schemas as schemas
 
 
 

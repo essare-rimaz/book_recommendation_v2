@@ -3,16 +3,16 @@ from fastapi import FastAPI, Depends
 from typing import List
 
 from sqlalchemy.orm import Session
-from .tools.db import engine, get_db
+from database.db import engine, get_db
 
-from database.models import Base
+from database import models
 
-import recommender.schemas as schemas
-import recommender.book_rec as book_rec
+import schemas as schemas
+import book_rec as book_rec
 
-from .routers import users
+from routers import users
 
-Base.metadata.create_all(engine)
+models.Base.metadata.create_all(engine)
 
 app = FastAPI()
 

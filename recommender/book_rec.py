@@ -2,7 +2,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from database.models import Rating, Book
-import recommender.schemas as schemas
+import schemas as schemas
 from fastapi import status, Response
 
 
@@ -83,4 +83,5 @@ def get_final_dataset(input_book_correlations: pd.Series, input_book_averages: p
         for row in recommended_books
     ]
 
-    return response_list
+    sorted_response_list = sorted(response_list, key=lambda x: x.CORRELATION, reverse=True)
+    return sorted_response_list

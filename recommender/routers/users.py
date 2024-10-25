@@ -3,13 +3,13 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from typing_extensions import Annotated
 
-import recommender.schemas as schemas
+import schemas as schemas
 
 from sqlalchemy.orm import Session
 
-from ..tools.auth import get_current_active_user, get_password_hash, authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from tools.auth import get_current_active_user, get_password_hash, authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 
-from ..tools.db import get_db
+from database.db import get_db
 from database.models import User, Rating
 
 from datetime import timedelta
@@ -20,7 +20,6 @@ from sqlalchemy import exc
 router = APIRouter(
     prefix="/users",
     tags=["users"],
-    #dependencies=[Depends(get_token_header)],
 )
 
 
