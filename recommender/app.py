@@ -1,52 +1,56 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 
-from typing import List
-
-from sqlalchemy.orm import Session
-from database.db import engine, get_db
+from database.db import engine
 
 from database import models
 
 import schemas as schemas
 import book_rec as book_rec
 
-from routers import users
+from routers import users, public
 
 models.Base.metadata.create_all(engine)
 
-app = FastAPI()
+tags_metadata = [
+    {
+        "name": "users",
+        "description": "Operations with users. The **registration** and **login** logic is also here.",
+    },
+    {
+        "name": "ratings",
+        "description": "Manage ratings - some functionality is available for logged in users only.",
+    },
+    {
+        "name": "recommendations",
+        "description": "Our flagship functionality - figure out what to read next based on a book you already like.",
+    },
+    {
+        "name": "books",
+        "description": "Access detailed information about books in our database.",
+    },
+]
+
+description = '''
+Are you out of ideas what do read?
+
+Your friends have a totally different taste when it comes to books?
+
+All the recommendations you got never worked out?
+
+Try our **recommendations** engine which could help you with all these problems.
+You don't even have to register!
+'''
+
+app = FastAPI(
+    title="Book Recommender",
+    version="0.0.1",
+    description=description,
+    openapi_tags=tags_metadata
+    )
 
 app.include_router(users.router)
-
-
-@app.get("/recommendations/{isbn}", response_model=List[schemas.RecommendationOut], tags=["recommendations"])
-def get_recommendations(
-    isbn: str, 
-    db: Session = Depends(get_db)
-):
-    corr_dataset = book_rec.get_ratings_of_related_books(isbn, db)
-    correlations = book_rec.get_books_correlation(corr_dataset, isbn)
-    averages = book_rec.get_books_average_rating(corr_dataset)
-    recommendations = book_rec.get_final_dataset(correlations, averages, isbn, db)
-
-    return recommendations
-
-
-@app.get("/books/{isbn}", response_model=schemas.BookOut, tags=["books"])
-def get_books(
-    isbn: str, 
-    db: Session = Depends(get_db)
-):
-    book_details = book_rec.get_book_details(isbn, db)
-
-    return book_details
-
-
-@app.get("/ratings/{isbn}", response_model=List[schemas.RatingOut], tags=["ratings"])
-def get_ratings(
-    isbn: str, 
-    db: Session = Depends(get_db)
-):
-    ratings = book_rec.get_book_ratings(isbn, db)
-
-    return ratings
+app.include_router(users.router, prefix="/v1")
+app.include_router(users.router, prefix="/latest")
+app.include_router(public.router)
+app.include_router(public.router, prefix="/v1")
+app.include_router(public.router, prefix="/latest")

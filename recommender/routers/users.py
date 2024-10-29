@@ -26,6 +26,7 @@ router = APIRouter(
 @router.get("/me", tags=["users"])
 def read_users_me(
     current_user: Annotated[schemas.User, Depends(get_current_active_user)],
+    summary="Get your user profile details"
 ):
     return schemas.UserMe(user_id=current_user.USER_ID)
 
@@ -33,7 +34,8 @@ def read_users_me(
 @router.post("/registration", status_code=status.HTTP_201_CREATED, tags=["users"])
 def users_register(
     user: schemas.UserRegistration,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    summary="Register in order to rate books and use other features"
 ):
     new_user_email = user.EMAIL
     new_user_hashed_password = get_password_hash(user.PASSWORD)
@@ -51,7 +53,8 @@ def post_ratings(
     isbn: str, 
     rating: schemas.RatingIn, 
     current_user: Annotated[schemas.User, Depends(get_current_active_user)], 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    summary="Give a book your rating - the higher the better"
 ):
     new_rating = Rating(USER_ID = current_user.USER_ID, ISBN = isbn, RATING = rating.RATING)
     try:
@@ -67,7 +70,8 @@ def post_ratings(
 @router.post("/token", status_code=status.HTTP_201_CREATED)
 def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    summary="Get your auth token"
 ) -> schemas.Token:
     user = authenticate_user(form_data.username, form_data.password, db)
     if not user:
