@@ -3,11 +3,6 @@ from typing_extensions import Annotated
 from typing import Union
 
 
-class RecommendationIn(BaseModel):
-    MAX_RECOMMENDATIONS: Annotated[int, Field(default=8, strict=True, gt=0)]
-    THRESHOLD: Annotated[float, Field(default=0.6, strict=True, ge=0, lt=1)]
-
-
 class RecommendationOut(BaseModel):
     ISBN: str
     TITLE: str
